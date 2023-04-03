@@ -1,12 +1,12 @@
+from datetime import datetime
 from os import environ
+from typing import TYPE_CHECKING, Any, Dict, Iterable, Optional, Type
 
 from backends.aws_timestream import TimeStreamBackend
 from backends.backend import Backend
 from backends.filesystem.backend import FileSystemBackend
 from backends.print import PrintBackend
 from backends.redis import RedisBackend
-from typing import TYPE_CHECKING, Iterable, Type, Dict, Any, Optional
-from datetime import datetime
 
 if TYPE_CHECKING:
     from .schema import TimeSeries
@@ -21,6 +21,7 @@ BACKENDS = {
 
 class Storage:
     backend: "Backend"
+    prepared: Dict[Type["TimeSeries"], bool] = {}
 
     # def __init__(self):
     #     print("init")
@@ -35,9 +36,14 @@ class Storage:
         if selected_backend not in BACKENDS:
             raise ValueError("Invalid backend selected")
         self.backend = BACKENDS[selected_backend]()
+        self.prepared = {}
         return self
 
     def add(self, data: "TimeSeries") -> None:
+        data_type = type(data)
+        if data_type not in self.prepared:
+            self.backend.prepare_type(data_type)
+            self.prepared[data_type] = True
         self.backend.persist(data)
 
     def query(
@@ -47,6 +53,8 @@ class Storage:
         start_time: datetime,
         end_time: Optional[datetime] = None,
     ) -> Iterable["TimeSeries"]:
+        if cls not in self.prepared:
+            self.backend.prepare_type(cls)
         yield from self.backend.query(cls, dimensions, start_time, end_time)
 
     def __exit__(self, *args, **kwargs):
