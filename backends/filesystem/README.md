@@ -1,0 +1,6 @@
+This backend implementation uses binary files to persist pydantic's structures. There's also a merging algorithm provided which is used to sort the file in-place. Basically, the reason for thi problem was as following:
+
+You have the first n points you want to persist. You sort them in-memory and then append them to the end of the file. However because there may be something in the file already, you need to merge it. And because you don't want to read the whole file back into memory, this merging is done in-place. There's also a Cache provided, because the File (you can think of it as an array) is swapped a lot of times and so this could potentially harm the hard drive. Instead, the
+swapping is done using in-memory cache and only after each iteration is done, the changes are persisted to the disk.
+
+Each python type can be encoded via a Codec. This is used to encode Decimal end Enum types. In case of Decimal, we can use properties provided by pydantic (max_digits / decimal_places) in order to deduce which int type would fit this nicely. Then, we simply multiply the Decimal by 10 raised to the power of decimal places and we get an int value that can be encoded into one of the available int types.
